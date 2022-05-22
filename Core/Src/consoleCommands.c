@@ -7,7 +7,7 @@
 //		3. Implement the function, using ConsoleReceiveParam<Type> to get the parameters from the buffer.
 #include <stdio.h>
 #include <string.h>
-#include "lcd_log.h"
+#include <stdlib.h>
 #include "consoleCommands.h"
 #include "console.h"
 #include "consoleIo.h"
@@ -31,7 +31,16 @@ static eCommandResult_T ConsoleCommandParamExampleHexUint16(const char buffer[])
 static eCommandResult_T ConsoleCommandGyroPresent(const char buffer[]);
 static eCommandResult_T ConsoleCommandGyroTest(const char buffer[]);
 static eCommandResult_T ConsoleCommandComment(const char buffer[]);
-static eCommandResult_T ConsoleTestScreenLog(const char buffer[]);
+static eCommandResult_T ConsoleCommandResourceConstraints(const char buffer[]);
+
+// This is initialized global variable for resource constraints test
+uint32_t initGlobalVar = 12;
+
+// This is uninitialized global variable for resource constraints test
+uint32_t uninitGlobalVar;
+
+extern uint8_t _end; /* Symbol defined in the linker script */
+extern uint8_t _estack; /* Definition of this variable can be found in linker script */
 
 static const sConsoleCommandTable_T mConsoleCommandTable[] =
 {
@@ -42,25 +51,9 @@ static const sConsoleCommandTable_T mConsoleCommandTable[] =
     {"u16h", &ConsoleCommandParamExampleHexUint16, HELP("How to get a hex u16 from the params list: u16h aB12")},
 	{"gp", &ConsoleCommandGyroPresent, HELP("Check is gyro present and responding")},
 	{"gt", &ConsoleCommandGyroTest, HELP("Test gyro: params 10 - number of seconds to test")},
-	{"slt", &ConsoleTestScreenLog, HELP("Screen log test")},
-
+	{"cr", &ConsoleCommandResourceConstraints, HELP("Test resource constraints")},
 	CONSOLE_COMMAND_TABLE_END // must be LAST
 };
-
-static eCommandResult_T ConsoleTestScreenLog(const char buffer[])
-{
-	ConsoleIoSendString("Testing screen log\n");
-	/* Show Header and Footer texts */
-    BSP_LCD_Init();
-    //LCD_LOG_Init();
-    //LCD_LOG_SetHeader((uint8_t*)"This is the header");
-    //LCD_LOG_SetFooter((uint8_t*)"This is the footer");
-
-
-    BSP_LCD_Clear(LCD_COLOR_WHITE);
-
-    return COMMAND_SUCCESS;
-}
 
 /**
  * @brief Draws gyro bars in ASCII
@@ -165,6 +158,57 @@ static eCommandResult_T ConsoleCommandGyroTest(const char buffer[]){
     	return COMMAND_ERROR;
     }
 	return COMMAND_SUCCESS;
+}
+
+/**
+ * This command was created for Week 8 exercise
+ */
+static eCommandResult_T ConsoleCommandResourceConstraints(const char buffer[]){
+    volatile static uint32_t staticVar = 2;
+    volatile uint32_t variableInFunction = 1;
+    char strbuf[100];
+    // empty the string buffer
+    memset(strbuf, 0x00, 100);
+    // on linux console color the output with \e[31m and \e[0m
+    ConsoleIoSendString(STR_ENDLINE);
+    // Print heap pointer address
+    uint32_t * pHeap = malloc(1);
+    *pHeap = 8;
+    sprintf(strbuf, "Heap: value: %i, address: %p", (int) *pHeap, pHeap);
+    ConsoleIoSendString(strbuf);
+    ConsoleIoSendString(STR_ENDLINE);
+
+    // Print stack pointer address
+    // Using __get_MSP() function from cmsis_armcc.h not sure am I suppose to use it
+    uint32_t stack = __get_MSP();
+    sprintf(strbuf, "Stack address: beginning: %p, end: %p", &stack, &_estack);
+    ConsoleIoSendString(strbuf);
+    ConsoleIoSendString(STR_ENDLINE);
+
+    // Print initialized global variable
+    sprintf(strbuf, "Initialized global variable:value: %i, address: %p", (int) initGlobalVar, &initGlobalVar);
+    ConsoleIoSendString(strbuf);
+    ConsoleIoSendString(STR_ENDLINE);
+
+    // Print uninitialized global variable
+    memset(strbuf, 0x00, 100);
+    sprintf(strbuf, "Unintialized global variable: value: %i, address: %p", (int) uninitGlobalVar, &uninitGlobalVar);
+    ConsoleIoSendString(strbuf);
+    ConsoleIoSendString(STR_ENDLINE);
+
+    // Print static variable inside a function
+    memset(strbuf, 0x00, 100);
+    sprintf(strbuf, "Static variable inside a function: value: %i, address: %p", (int)  staticVar, &staticVar);
+    ConsoleIoSendString(strbuf);
+    ConsoleIoSendString(STR_ENDLINE);
+
+    // Print variable inside a function
+    memset(strbuf, 0x00, 100);
+    sprintf(strbuf, "Variable inside a function: value: %i, address: %p", (int)  variableInFunction, &variableInFunction);
+    ConsoleIoSendString(strbuf);
+    ConsoleIoSendString(STR_ENDLINE);
+
+    return COMMAND_SUCCESS;
 }
 
 
